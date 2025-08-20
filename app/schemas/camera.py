@@ -1,68 +1,112 @@
+"""
+Camera-related schemas
+"""
+
 from datetime import datetime
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
+from enum import Enum
 
-# =======================
-# Base schema
-# =======================
-class CameraBase(BaseModel):
-    camera_id: str = Field(..., max_length=50)
-    name: str = Field(..., max_length=100)
-    description: Optional[str] = None
-    location: Optional[str] = None
-    zone: Optional[str] = None
-    floor: Optional[str] = None
-    building: Optional[str] = None
-    status: Optional[str] = "active"
-    is_enabled: Optional[bool] = True
-    config: Optional[Dict[str, Any]] = None
-    stream_url: Optional[str] = None
-    resolution: Optional[str] = None
-    fps: Optional[int] = None
-    enable_detection: Optional[bool] = True
-    enable_tracking: Optional[bool] = True
-    enable_face_recognition: Optional[bool] = True
-    detection_threshold: Optional[Dict[str, float]] = None
-    tracking_config: Optional[Dict[str, Any]] = None
+class CameraType(str, Enum):
+    """Camera type enum"""
+    IP_CAMERA = "ip_camera"
+    USB_CAMERA = "usb_camera"
+    RTSP_STREAM = "rtsp_stream"
 
-# =======================
-# Schema for creating a camera
-# =======================
-class CameraCreate(CameraBase):
-    pass
+class CameraStatus(str, Enum):
+    """Camera status enum"""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    ERROR = "error"
+    MAINTENANCE = "maintenance"
 
-# =======================
-# Schema for updating a camera
-# =======================
+class CameraCreate(BaseModel):
+    """Schema for creating a camera"""
+    name: str = Field(..., min_length=1, max_length=100)
+    camera_type: CameraType
+    stream_url: str = Field(..., min_length=1, max_length=500)
+    location: Optional[str] = Field(None, max_length=200)
+    description: Optional[str] = Field(None, max_length=500)
+    settings: Optional[Dict[str, Any]] = None
+    
+    @validator('stream_url')
+    def validate_stream_url(cls, v):
+        """Validate stream URL format"""
+        if not (v.startswith('rtsp://') or v.startswith('http://') or 
+                v.startswith('https://') or v.startswith('/dev/')):
+            raise ValueError('Invalid stream URL format')
+        return v
+
 class CameraUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    location: Optional[str] = None
-    zone: Optional[str] = None
-    floor: Optional[str] = None
-    building: Optional[str] = None
-    status: Optional[str] = None
-    is_enabled: Optional[bool] = None
-    config: Optional[Dict[str, Any]] = None
-    stream_url: Optional[str] = None
-    resolution: Optional[str] = None
-    fps: Optional[int] = None
-    enable_detection: Optional[bool] = None
-    enable_tracking: Optional[bool] = None
-    enable_face_recognition: Optional[bool] = None
-    detection_threshold: Optional[Dict[str, float]] = None
-    tracking_config: Optional[Dict[str, Any]] = None
+    """Schema for updating a camera"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    stream_url: Optional[str] = Field(None, min_length=1, max_length=500)
+    location: Optional[str] = Field(None, max_length=200)
+    description: Optional[str] = Field(None, max_length=500)
+    status: Optional[CameraStatus] = None
+    settings: Optional[Dict[str, Any]] = None
+    
+    @validator('stream_url')
+    def validate_stream_url(cls, v):
+        if v and not (v.startswith('rtsp://') or v.startswith('http://') or 
+                     v.startswith('https://') or v.startswith('/dev/')):
+            raise ValueError('Invalid stream URL format')
+        return v
 
-# =======================
-# Schema for reading a camera (API response)
-# =======================
-class CameraRead(CameraBase):
+class CameraResponse(BaseModel):
+    """Schema for camera response"""
     id: int
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    last_seen: Optional[datetime] = None
-    is_online: Optional[bool] = None
-    uptime_status: Optional[str] = None
-
+    name: str
+    camera_type: CameraType
+    stream_url: str
+    location: Optional[str]
+    description: Optional[str]
+    status: CameraStatus
+    settings: Optional[Dict[str, Any]]
+    created_at: datetime
+    updated_at: datetime
+    last_seen: Optional[datetime]
+    
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class CameraStatusUpdate(BaseModel):
+    """Schema for updating camera status"""
+    status: CameraStatus
+    last_seen: Optional[datetime] = None
+    error_message: Optional[str] = None
+
+class CameraStreamInfo(BaseModel):
+    """Schema for camera stream information"""
+    camera_id: int
+    stream_url: str
+    status: CameraStatus
+    fps: Optional[float] = None
+    resolution: Optional[str] = None
+    codec: Optional[str] = None
+    bitrate: Optional[int] = None
+    
+class CameraSettings(BaseModel):
+    """Schema for camera settings"""
+    resolution: Optional[str] = None
+    fps: Optional[int] = Field(None, ge=1, le=60)
+    quality: Optional[int] = Field(None, ge=1, le=100)
+    brightness: Optional[int] = Field(None, ge=-100, le=100)
+    contrast: Optional[int] = Field(None, ge=-100, le=100)
+    saturation: Optional[int] = Field(None, ge=-100, le=100)
+    auto_focus: Optional[bool] = None
+    night_vision: Optional[bool] = None
+    motion_detection: Optional[bool] = None
+    audio_enabled: Optional[bool] = None
+    
+class CameraStats(BaseModel):
+    """Schema for camera statistics"""
+    camera_id: int
+    total_detections: int = 0
+    total_tracks: int = 0
+    total_faces: int = 0
+    uptime_hours: float = 0.0
+    avg_fps: Optional[float] = None
+    last_detection_at: Optional[datetime] = None
+    last_track_at: Optional[datetime] = None
+    last_face_at: Optional[datetime] = None

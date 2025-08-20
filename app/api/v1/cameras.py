@@ -2,21 +2,21 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.schemas.camera import CameraRead, CameraCreate, CameraUpdate
+from app.schemas.camera import CameraResponse, CameraCreate, CameraUpdate
 from app.services.camera_service import CameraService
-from app.core.database import get_db
+from app.core.database import get_db_session
 
 router = APIRouter(prefix="/cameras", tags=["cameras"])
 
 
-@router.post("/", response_model=CameraRead, status_code=status.HTTP_201_CREATED)
-def create_camera(camera_in: CameraCreate, db: Session = Depends(get_db)):
+@router.post("/", response_model=CameraResponse, status_code=status.HTTP_201_CREATED)
+async def create_camera(camera_in: CameraCreate, db: Session = Depends(get_db_session)):
     service = CameraService(db)
     return service.create(camera_in)
 
 
-@router.get("/{camera_id}", response_model=CameraRead)
-def get_camera(camera_id: str, db: Session = Depends(get_db)):
+@router.get("/{camera_id}", response_model=CameraResponse)
+async def get_camera(camera_id: int, db: Session = Depends(get_db_session)):
     service = CameraService(db)
     camera = service.get(camera_id)
     if not camera:
@@ -24,14 +24,14 @@ def get_camera(camera_id: str, db: Session = Depends(get_db)):
     return camera
 
 
-@router.get("/", response_model=List[CameraRead])
-def list_cameras(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+@router.get("/", response_model=List[CameraResponse])
+async def list_cameras(skip: int = 0, limit: int = 100, db: Session = Depends(get_db_session)):
     service = CameraService(db)
     return service.list(skip=skip, limit=limit)
 
 
-@router.put("/{camera_id}", response_model=CameraRead)
-def update_camera(camera_id: str, camera_in: CameraUpdate, db: Session = Depends(get_db)):
+@router.put("/{camera_id}", response_model=CameraResponse)
+async def update_camera(camera_id: int, camera_in: CameraUpdate, db: Session = Depends(get_db_session)):
     service = CameraService(db)
     camera = service.get(camera_id)
     if not camera:
@@ -40,7 +40,7 @@ def update_camera(camera_id: str, camera_in: CameraUpdate, db: Session = Depends
 
 
 @router.delete("/{camera_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_camera(camera_id: str, db: Session = Depends(get_db)):
+async def delete_camera(camera_id: int, db: Session = Depends(get_db_session)):
     service = CameraService(db)
     camera = service.get(camera_id)
     if not camera:

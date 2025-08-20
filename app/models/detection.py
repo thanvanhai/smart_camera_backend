@@ -194,4 +194,52 @@ class DetectionSummary(Base):
     total_detections = Column(BigInteger, default=0, nullable=False)
     total_objects = Column(BigInteger, default=0, nullable=False)
     unique_object_types = Column(JSON, nullable=True)  # List of unique object types
-    object_type_counts =
+    object_type_counts = Column(JSON, nullable=True)  # Count per object type
+    person_count_total = Column(BigInteger, default=0, nullable=False)
+    person_count_max = Column(BigInteger, default=0, nullable=False)  # Max persons in single detection
+    
+    # Confidence statistics
+    confidence_avg = Column(Float, nullable=True)
+    confidence_min = Column(Float, nullable=True)
+    confidence_max = Column(Float, nullable=True)
+    
+    # Activity patterns
+    peak_hour = Column(BigInteger, nullable=True)  # Hour with most activity (0-23)
+    activity_pattern = Column(JSON, nullable=True)  # Hourly activity counts
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    # Relationships
+    camera = relationship("Camera")
+    
+    # Indexes
+    __table_args__ = (
+        Index("idx_summary_camera_period", "camera_id", "period_start", "period_type"),
+        Index("idx_summary_period_start", "period_start"),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<DetectionSummary(camera_id='{self.camera_id}', period='{self.period_type}', detections={self.total_detections})>"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert summary to dictionary."""
+        return {
+            "id": self.id,
+            "camera_id": self.camera_id,
+            "period_start": self.period_start.isoformat() if self.period_start else None,
+            "period_end": self.period_end.isoformat() if self.period_end else None,
+            "period_type": self.period_type,
+            "total_detections": self.total_detections,
+            "total_objects": self.total_objects,
+            "unique_object_types": self.unique_object_types,
+            "object_type_counts": self.object_type_counts,
+            "person_count_total": self.person_count_total,
+            "person_count_max": self.person_count_max,
+            "confidence_avg": self.confidence_avg,
+            "confidence_min": self.confidence_min,
+            "confidence_max": self.confidence_max,
+            "peak_hour": self.peak_hour,
+            "activity_pattern": self.activity_pattern,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
