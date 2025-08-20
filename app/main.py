@@ -1,47 +1,60 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db, engine
-from app import models
+from app.core.database import get_db, engine
+from app.models import camera, detection, tracking, face_recognition
 from app.schemas.camera import CameraCreate, CameraRead
-from app.schemas.person import PersonCreate, PersonRead
-from app.schemas.event import PersonEventCreate, PersonEventRead
-from app.crud import camera as crud_camera, person as crud_person, event as crud_event
+from app.schemas.detection import DetectionCreate, DetectionRead
+from app.schemas.tracking import TrackingCreate, TrackingRead
+from app.schemas.face_recognition import FaceRecognitionCreate, FaceRecognitionRead
+from app.services import camera_service, detection_service, tracking_service, face_recognition_service
 
 app = FastAPI(title="Smart Camera Backend")
 
 # Tạo database nếu chưa có
 async def init_models():
     async with engine.begin() as conn:
-        await conn.run_sync(models.Base.metadata.create_all)
+        # Tạo tất cả bảng
+        await conn.run_sync(camera.Base.metadata.create_all)
+        await conn.run_sync(detection.Base.metadata.create_all)
+        await conn.run_sync(tracking.Base.metadata.create_all)
+        await conn.run_sync(face_recognition.Base.metadata.create_all)
 
-# ✅ gọi init_models khi app start
 @app.on_event("startup")
 async def on_startup():
     await init_models()
 
-# Routes Camera
+# === Camera Routes ===
 @app.get("/cameras", response_model=list[CameraRead])
 async def read_cameras(db: AsyncSession = Depends(get_db)):
-    return await crud_camera.get_cameras(db)
+    return await camera_service.get_cameras(db)
 
 @app.post("/cameras", response_model=CameraRead)
-async def create_camera(camera: CameraCreate, db: AsyncSession = Depends(get_db)):
-    return await crud_camera.create_camera(db, camera)
+async def create_camera(camera_in: CameraCreate, db: AsyncSession = Depends(get_db)):
+    return await camera_service.create_camera(db, camera_in)
 
-# Routes Person
-@app.get("/persons", response_model=list[PersonRead])
-async def read_persons(db: AsyncSession = Depends(get_db)):
-    return await crud_person.get_persons(db)
+# === Detection Routes ===
+@app.get("/detections", response_model=list[DetectionRead])
+async def read_detections(db: AsyncSession = Depends(get_db)):
+    return await detection_service.get_detections(db)
 
-@app.post("/persons", response_model=PersonRead)
-async def create_person(person: PersonCreate, db: AsyncSession = Depends(get_db)):
-    return await crud_person.create_person(db, person)
+@app.post("/detections", response_model=DetectionRead)
+async def create_detection(detection_in: DetectionCreate, db: AsyncSession = Depends(get_db)):
+    return await detection_service.create_detection(db, detection_in)
 
-# Routes Event
-@app.get("/events", response_model=list[PersonEventRead])
-async def read_events(db: AsyncSession = Depends(get_db)):
-    return await crud_event.get_events(db)
+# === Tracking Routes ===
+@app.get("/tracking", response_model=list[TrackingRead])
+async def read_tracking(db: AsyncSession = Depends(get_db)):
+    return await tracking_service.get_tracking_data(db)
 
-@app.post("/events", response_model=PersonEventRead)
-async def create_event(event: PersonEventCreate, db: AsyncSession = Depends(get_db)):
-    return await crud_event.create_event(db, event)
+@app.post("/tracking", response_model=TrackingRead)
+async def create_tracking(tracking_in: TrackingCreate, db: AsyncSession = Depends(get_db)):
+    return await tracking_service.create_tracking(db, tracking_in)
+
+# === Face Recognition Routes ===
+@app.get("/faces", response_model=list[FaceRecognitionRead])
+async def read_faces(db: AsyncSession = Depends(get_db)):
+    return await face_recognition_service.get_faces(db)
+
+@app.post("/faces", response_model=FaceRecognitionRead)
+async def create_face(face_in: FaceRecognitionCreate, db: AsyncSession = Depends(get_db)):
+    return await face_recognition_service.create_face(db, face_in)
