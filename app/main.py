@@ -21,7 +21,8 @@ structlog.configure(
         structlog.stdlib.filter_by_level,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
-        structlog.iso_utc_timestamps_formatter(),
+        # structlog.iso_utc_timestamps_formatter(),
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.JSONRenderer() if settings.log_format == "json" 
         else structlog.dev.ConsoleRenderer(),
     ],

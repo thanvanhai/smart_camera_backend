@@ -39,15 +39,17 @@ class DatabaseManager:
         
         logger.info("Initializing database connection", url=settings.database_url)
         
-        # Create async engine
+        # Create async engine  # ⚡ Async engine KHÔNG dùng pool_size/max_overflow
         self.engine = create_async_engine(
             settings.database_url,
             echo=settings.database_echo,
-            pool_size=settings.database_pool_size,
-            max_overflow=settings.database_max_overflow,
+            # pool_size=settings.database_pool_size,
+            # max_overflow=settings.database_max_overflow,
             poolclass=NullPool if settings.is_development else None,
             future=True,
+            pool_pre_ping=True,   # tránh connection chết
         )
+        
         
         # Create session factory
         self.session_factory = async_sessionmaker(
