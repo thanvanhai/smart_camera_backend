@@ -5,6 +5,7 @@ Detection processing service
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, desc, and_, extract
 
 from ..models.detection import Detection, DetectionSummary
@@ -18,7 +19,7 @@ from ..schemas.detection import (
 class DetectionService:
     """Service for detection processing operations"""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
     
     async def create_detection(self, detection_data: DetectionCreate) -> Detection:
@@ -37,8 +38,8 @@ class DetectionService:
         )
         
         self.db.add(db_detection)
-        self.db.commit()
-        self.db.refresh(db_detection)
+        await  self.db.commit()
+        await  self.db.refresh(db_detection)
         return db_detection
     
     async def create_bulk_detections(
@@ -64,19 +65,21 @@ class DetectionService:
             detections.append(db_detection)
         
         self.db.add_all(detections)
-        self.db.commit()
+        await  self.db.commit()
         
         # Refresh all objects
         for detection in detections:
-            self.db.refresh(detection)
+            await  self.db.refresh(detection)
         
         return detections
     
     async def get_detection(self, detection_id: int) -> Optional[Detection]:
         """Get detection by ID"""
-        return self.db.query(Detection).filter(
-            Detection.id == detection_id
-        ).first()
+        # Sửa từ sync query sang async
+        result = await self.db.execute(
+            select(Detection).filter(Detection.id == detection_id)
+        )
+        return result.scalar_one_or_none()
     
     async def get_detections(
         self,
@@ -85,7 +88,8 @@ class DetectionService:
         limit: int = 100
     ) -> List[Detection]:
         """Get detections with filters"""
-        query = self.db.query(Detection)
+        # Sửa từ sync query sang async
+        query = select(Detection)
         
         if filters.camera_id:
             query = query.filter(Detection.camera_id == filters.camera_id)
@@ -324,7 +328,7 @@ class DetectionService:
             Detection.created_at < cutoff_date
         ).delete()
         
-        self.db.commit()
+        await  self.db.commit()
         return deleted_count
     
     async def get_recent_detections(
@@ -413,8 +417,8 @@ class DetectionService:
             existing_summary.peak_detections = peak_detections
             existing_summary.updated_at = datetime.utcnow()
             
-            self.db.commit()
-            self.db.refresh(existing_summary)
+            await  self.db.commit()
+            await self.db.refresh(existing_summary)
             return existing_summary
         else:
             # Create new summary
@@ -429,6 +433,6 @@ class DetectionService:
             )
             
             self.db.add(summary)
-            self.db.commit()
-            self.db.refresh(summary)
+            await  self.db.commit()
+            await  self.db.refresh(summary)
             return summary

@@ -18,6 +18,7 @@ class Camera(Base):
     # Camera identification
     camera_id = Column(String(50), unique=True, nullable=False, index=True)
     name = Column(String(100), nullable=False)
+    camera_type = Column(String(50), nullable=True)  # <-- thêm lại
     description = Column(Text, nullable=True)
     
     # Location information
@@ -27,6 +28,7 @@ class Camera(Base):
     building = Column(String(100), nullable=True)
     
     # Camera status and configuration
+    settings = Column(JSON, nullable=True)
     status = Column(String(20), default="active", nullable=False)  # active, inactive, maintenance, error
     is_enabled = Column(Boolean, default=True, nullable=False)
     
@@ -64,11 +66,13 @@ class Camera(Base):
             "id": self.id,
             "camera_id": self.camera_id,
             "name": self.name,
+            "camera_type": self.camera_type,
             "description": self.description,
             "location": self.location,
             "zone": self.zone,
             "floor": self.floor,
             "building": self.building,
+            "settings": self.settings,
             "status": self.status,
             "is_enabled": self.is_enabled,
             "config": self.config,

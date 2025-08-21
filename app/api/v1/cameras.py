@@ -12,7 +12,7 @@ router = APIRouter(prefix="/cameras", tags=["cameras"])
 @router.post("/", response_model=CameraResponse, status_code=status.HTTP_201_CREATED)
 async def create_camera(camera_in: CameraCreate, db: Session = Depends(get_db_session)):
     service = CameraService(db)
-    return service.create(camera_in)
+    return await service.create_camera(camera_in)
 
 
 @router.get("/{camera_id}", response_model=CameraResponse)

@@ -1,3 +1,4 @@
+# app/main.py
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -10,9 +11,9 @@ import uvicorn
 
 from app.config import settings
 from app.core.database import init_database, close_database
-from app.core.rabbitmq import init_rabbitmq, close_rabbitmq, ros2_consumer
+from app.core.rabbitmq import init_rabbitmq, close_rabbitmq
 from app.api.v1 import cameras, detections, tracking, analytics, websocket
-from app.workers.rabbitmq_consumer import start_background_consumers
+from app.workers import start_background_consumers, stop_background_consumers, get_worker_status
 from app.services.camera_service import CameraService
 
 # Setup structured logging
@@ -21,7 +22,6 @@ structlog.configure(
         structlog.stdlib.filter_by_level,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
-        # structlog.iso_utc_timestamps_formatter(),
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.JSONRenderer() if settings.log_format == "json" 
         else structlog.dev.ConsoleRenderer(),
@@ -49,9 +49,10 @@ async def lifespan(app: FastAPI):
         await init_rabbitmq()
         logger.info("RabbitMQ initialized")
         
-        # Start background consumers
+        # Start background consumers in a separate task
+        # This allows the main app to start while workers run in background
         asyncio.create_task(start_background_consumers())
-        logger.info("Background consumers started")
+        logger.info("Background consumers task created")
         
         logger.info("Application startup completed successfully")
         
@@ -65,6 +66,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Smart Camera Backend")
     
     try:
+        # Stop background consumers first
+        await stop_background_consumers()
+        logger.info("Background consumers stopped")
+        
         # Close RabbitMQ connections
         await close_rabbitmq()
         logger.info("RabbitMQ connections closed")
@@ -219,10 +224,13 @@ async def detailed_health_check():
             "error": str(e)
         }
     
-    # Check ROS2 consumer
-    health_status["services"]["ros2_consumer"] = {
-        "status": "healthy" if ros2_consumer.is_running else "unhealthy",
-        "running": ros2_consumer.is_running
+    # Check background workers
+    worker_status = get_worker_status()
+    health_status["services"]["background_workers"] = {
+        "status": "healthy" if worker_status["running_workers"] > 0 else "unhealthy",
+        "total_workers": worker_status["total_workers"],
+        "running_workers": worker_status["running_workers"],
+        "failed_workers": worker_status["failed_workers"]
     }
     
     # Overall status
@@ -235,6 +243,13 @@ async def detailed_health_check():
         health_status["status"] = "degraded"
     
     return health_status
+
+
+# Worker status endpoint
+@app.get("/workers/status")
+async def worker_status():
+    """Get detailed status of background workers."""
+    return get_worker_status()
 
 
 # API Routes
@@ -279,6 +294,7 @@ async def root():
         "description": "Smart Camera System Backend API",
         "docs_url": "/docs" if settings.debug else None,
         "health_check": "/health",
+        "worker_status": "/workers/status",
         "api_prefix": settings.api_prefix,
         "timestamp": datetime.utcnow().isoformat(),
     }
@@ -308,6 +324,55 @@ if settings.enable_metrics:
             content=generate_latest(),
             media_type="text/plain"
         )
+
+
+# Test endpoints for ROS2 integration (only in debug mode)
+if settings.debug:
+    from app.schemas.detection import DetectionCreate
+    from app.schemas.tracking import TrackingCreate
+    from datetime import datetime
+    
+    @app.post("/test/ros2/detection")
+    async def test_ros2_detection(data: dict):
+        """Test endpoint to simulate ROS2 detection message"""
+        from app.workers.rabbitmq_consumer import consumer
+        
+        # Simulate ROS2 message format
+        test_message = {
+            "camera_id": data.get("camera_id", "test_camera"),
+            "timestamp": datetime.now().isoformat(),
+            "objects": data.get("objects", [
+                {
+                    "type": "person",
+                    "confidence": 0.95,
+                    "bbox": {"x": 100, "y": 100, "width": 50, "height": 150}
+                }
+            ]),
+            "raw_data": str(data)
+        }
+        
+        logger.info(f"Test detection message: {test_message}")
+        return {"message": "Test detection sent", "data": test_message}
+    
+    @app.post("/test/ros2/tracking")
+    async def test_ros2_tracking(data: dict):
+        """Test endpoint to simulate ROS2 tracking message"""
+        
+        test_message = {
+            "camera_id": data.get("camera_id", "test_camera"),
+            "timestamp": datetime.now().isoformat(),
+            "tracks": data.get("tracks", [
+                {
+                    "track_id": 1,
+                    "object_type": "person",
+                    "confidence": 0.9,
+                    "location": {"x": 120, "y": 110, "width": 60, "height": 160}
+                }
+            ])
+        }
+        
+        logger.info(f"Test tracking message: {test_message}")
+        return {"message": "Test tracking sent", "data": test_message}
 
 
 if __name__ == "__main__":
