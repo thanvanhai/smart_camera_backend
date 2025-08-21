@@ -7,11 +7,13 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field, validator
 from enum import Enum
 
+
 class CameraType(str, Enum):
     """Camera type enum"""
     IP_CAMERA = "ip_camera"
     USB_CAMERA = "usb_camera"
     RTSP_STREAM = "rtsp_stream"
+
 
 class CameraStatus(str, Enum):
     """Camera status enum"""
@@ -20,22 +22,24 @@ class CameraStatus(str, Enum):
     ERROR = "error"
     MAINTENANCE = "maintenance"
 
+
 class CameraCreate(BaseModel):
     """Schema for creating a camera"""
+    camera_id: Optional[str] = None  # Tự sinh nếu không có
     name: str = Field(..., min_length=1, max_length=100)
     camera_type: CameraType
     stream_url: str = Field(..., min_length=1, max_length=500)
     location: Optional[str] = Field(None, max_length=200)
     description: Optional[str] = Field(None, max_length=500)
     settings: Optional[Dict[str, Any]] = None
-    
+
     @validator('stream_url')
     def validate_stream_url(cls, v):
-        """Validate stream URL format"""
         if not (v.startswith('rtsp://') or v.startswith('http://') or 
                 v.startswith('https://') or v.startswith('/dev/')):
             raise ValueError('Invalid stream URL format')
         return v
+
 
 class CameraUpdate(BaseModel):
     """Schema for updating a camera"""
@@ -45,7 +49,7 @@ class CameraUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=500)
     status: Optional[CameraStatus] = None
     settings: Optional[Dict[str, Any]] = None
-    
+
     @validator('stream_url')
     def validate_stream_url(cls, v):
         if v and not (v.startswith('rtsp://') or v.startswith('http://') or 
@@ -53,9 +57,11 @@ class CameraUpdate(BaseModel):
             raise ValueError('Invalid stream URL format')
         return v
 
+
 class CameraResponse(BaseModel):
     """Schema for camera response"""
-    id: int
+    id: int  # Primary key
+    camera_id: str  # Unique camera identifier
     name: str
     camera_type: CameraType
     stream_url: str
@@ -63,12 +69,22 @@ class CameraResponse(BaseModel):
     description: Optional[str]
     status: CameraStatus
     settings: Optional[Dict[str, Any]]
+    is_enabled: bool
+    config: Optional[Dict[str, Any]] = None
+    resolution: Optional[str] = None
+    fps: Optional[int] = None
+    enable_detection: bool
+    enable_tracking: bool
+    enable_face_recognition: bool
+    detection_threshold: Optional[Dict[str, float]] = None
+    tracking_config: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
     last_seen: Optional[datetime]
-    
+
     class Config:
         from_attributes = True
+
 
 class CameraStatusUpdate(BaseModel):
     """Schema for updating camera status"""
@@ -76,16 +92,18 @@ class CameraStatusUpdate(BaseModel):
     last_seen: Optional[datetime] = None
     error_message: Optional[str] = None
 
+
 class CameraStreamInfo(BaseModel):
     """Schema for camera stream information"""
-    camera_id: int
+    camera_id: str
     stream_url: str
     status: CameraStatus
     fps: Optional[float] = None
     resolution: Optional[str] = None
     codec: Optional[str] = None
     bitrate: Optional[int] = None
-    
+
+
 class CameraSettings(BaseModel):
     """Schema for camera settings"""
     resolution: Optional[str] = None
@@ -98,10 +116,11 @@ class CameraSettings(BaseModel):
     night_vision: Optional[bool] = None
     motion_detection: Optional[bool] = None
     audio_enabled: Optional[bool] = None
-    
+
+
 class CameraStats(BaseModel):
     """Schema for camera statistics"""
-    camera_id: int
+    camera_id: str
     total_detections: int = 0
     total_tracks: int = 0
     total_faces: int = 0
