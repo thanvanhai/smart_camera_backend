@@ -15,7 +15,7 @@ def _build_camera_created_message(camera: CameraResponse) -> dict:
     Ưu tiên các field phổ biến: camera_id, camera_url/stream_url.
     """
     data = camera.model_dump() if hasattr(camera, "model_dump") else dict(camera)  # pydantic v2/v1
-    camera_id = data.get("name") # or data.get("camera_id") or data.get("id") vì camera_id đang có ký tự đặc biệt
+    camera_id = data.get("camera_id") # chú ý camera_id đang có ký tự đặc biệt vì ROS sử dụng camera_id để tạo thư mục topic
     camera_url = data.get("stream_url") or data.get("camera_url") or data.get("rtsp_url")
 
     payload = {
