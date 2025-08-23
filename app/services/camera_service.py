@@ -22,8 +22,8 @@ class CameraService:
     
     async def create_camera(self, camera_data: CameraCreate) -> CameraResponse:
         """Create a new camera with automatic camera_id if not provided"""
-        camera_id = camera_data.camera_id or str(uuid.uuid4().hex)#chuyển đổi camera_id thành chuỗi UUID không có dấu gạch ngang để ROS tạo topic không lỗi
-        
+        raw_id = camera_data.camera_id or uuid.uuid4().hex#chuyển đổi camera_id thành chuỗi UUID không có dấu gạch ngang để ROS tạo topic không lỗi
+        camera_id = f"c{raw_id}"#luôn băt đầu bằng chữ 'c' để tránh lỗi topic bắt đầu bằng số trong ROS
         db_camera = Camera(
             camera_id=camera_id,
             name=camera_data.name,

@@ -12,7 +12,7 @@ import uvicorn
 from app.config import settings
 from app.core.database import init_database, close_database
 from app.core.rabbitmq import init_rabbitmq, close_rabbitmq
-from app.api.v1 import cameras, detections, tracking, analytics, websocket
+from app.api.v1 import cameras, detections, tracking, analytics, websocket, stream
 from app.workers import start_background_consumers, stop_background_consumers, get_worker_status
 from app.services.camera_service import CameraService
 
@@ -257,6 +257,12 @@ app.include_router(
     cameras.router,
     prefix=f"{settings.api_prefix}/cameras",
     tags=["cameras"]
+)
+
+app.include_router(
+    stream.router,
+    prefix=f"{settings.api_prefix}/cameras",
+    tags=["stream"]
 )
 
 app.include_router(
