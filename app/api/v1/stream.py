@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from app.services.stream_service import get_stream_service, StreamService
 
-router = APIRouter(prefix="/cameras", tags=["stream"])
+router = APIRouter(tags=["stream"])
 
 @router.get("/{camera_id}/stream")
 async def stream_camera(camera_id: str, stream_service: StreamService = Depends(get_stream_service)):

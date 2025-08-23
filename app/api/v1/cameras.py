@@ -7,7 +7,7 @@ from app.services.camera_service import CameraService
 from app.core.database import get_db_session
 from app.services.rabbitmq_service import publish_camera_event
 
-router = APIRouter(prefix="/cameras", tags=["cameras"])
+router = APIRouter(tags=["cameras"])
 
 def _build_camera_created_message(camera: CameraResponse) -> dict:
     """
@@ -46,7 +46,7 @@ async def create_camera(
     payload = _build_camera_created_message(camera)
     # 👇 debug nhanh dữ liệu trước khi gửi RabbitMQ
     # print("DEBUG payload before publish:", payload)
-    background_tasks.add_task(publish_camera_event, "created", payload)
+    background_tasks.add_task(publish_camera_event, payload)
 
     return camera
 
@@ -99,6 +99,6 @@ async def delete_camera(
 
     # Publish removed event
     payload = _build_camera_removed_message(camera.camera_id if hasattr(camera, "camera_id") else camera_id)
-    background_tasks.add_task(publish_camera_event, "removed", payload)
+    background_tasks.add_task(publish_camera_event, payload)
 
     return None
