@@ -12,7 +12,7 @@ async def publish_camera_event(payload: dict):
     channel = await connection.channel()
 
     exchange = await channel.declare_exchange(
-        "camera.events",
+        "camera.events", # Tên của exchange, phải khớp 100% với bên ROS ..smart_camera_ws/src/smart_camera_bridge/smart_camera_bridge/rabbitmq_config.py
         aio_pika.ExchangeType.FANOUT,
         durable=True
     )
