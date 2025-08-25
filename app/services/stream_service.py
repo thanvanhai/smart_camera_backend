@@ -13,6 +13,7 @@ from app.schemas.camera import CameraStreamInfo, CameraStatus
 from app.services.rabbitmq_manager import rabbitmq_manager
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)  # Bật log debug
 
 # Dependency chung cho FastAPI
 async def get_rabbitmq_connection() -> aio_pika.abc.AbstractRobustConnection:
@@ -37,6 +38,7 @@ class StreamService:
         if not self.channel or self.channel.is_closed:
             self.channel = await self.connection.channel()
             await self.channel.set_qos(prefetch_count=1)
+            logger.debug("StreamService channel initialized")
 
     async def _ensure_queues_declared(self, camera_id: str):
         """Declare metadata + stream queues chỉ 1 lần"""
@@ -48,6 +50,7 @@ class StreamService:
 
         info_queue_name = f"camera.info.{camera_id}"
         await self.channel.declare_queue(info_queue_name, durable=False, auto_delete=True)
+        logger.debug(f"Queue declared: {info_queue_name} (metadata)")
 
         stream_queue_name = f"camera.stream.{camera_id}"
         await self.channel.declare_queue(
@@ -61,7 +64,7 @@ class StreamService:
             }
         )
         self._declared_queues[camera_id] = True
-        logger.info(f"Declared queues for camera {camera_id}")
+        logger.info(f"Declared queues for camera {camera_id} with max-length=5 and ttl=2000ms")
 
     async def get_stream_info(self, camera_id: str) -> Optional[CameraStreamInfo]:
         """Lấy metadata từ queue camera.info"""
@@ -79,6 +82,7 @@ class StreamService:
                 )
             async with message.process():
                 payload = json.loads(message.body.decode('utf-8'))
+                logger.debug(f"[get_stream_info] Camera {camera_id} metadata: {payload}")
                 width, height = payload.get('width'), payload.get('height')
                 return CameraStreamInfo(
                     camera_id=camera_id,
@@ -110,6 +114,7 @@ class StreamService:
                             frame_bytes = base64.b64decode(frame_base64)
                             if not (frame_bytes.startswith(b'\xff\xd8') and frame_bytes.endswith(b'\xff\xd9')):
                                 continue
+                            logger.debug(f"[stream_generator] Camera {camera_id} - got frame {len(frame_bytes)} bytes")
                             yield (
                                 b'--frame\r\n'
                                 b'Content-Type: image/jpeg\r\n'
@@ -147,6 +152,7 @@ class StreamService:
             await self._ensure_queues_declared(camera_id)
             queue = await self.channel.get_queue(f"camera.stream.{camera_id}")
             info = await queue.info()
+            logger.debug(f"[check_camera_active] Camera {camera_id} message_count={info.message_count}")
             return info.message_count > 0
         except Exception as e:
             logger.error(f"Error checking camera {camera_id} status: {e}")

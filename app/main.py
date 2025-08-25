@@ -388,4 +388,6 @@ if __name__ == "__main__":
         port=settings.api_port,
         reload=settings.debug,
         log_level=settings.log_level.lower(),
+        ssl_keyfile="key.pem",    # Đường dẫn tới file key tự ký
+        ssl_certfile="cert.pem",  # Đường dẫn tới file cert tự ký
     )
